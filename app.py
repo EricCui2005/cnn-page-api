@@ -18,6 +18,7 @@ def home():
         'status': 'success'
     })
 
+# Returns a model summary
 @app.route('/model-summary')
 def model_summary():
     try:
@@ -39,8 +40,22 @@ def model_summary():
             'message': str(e)
         }), 500
 
+# Returns prediction probabilities for an image
 @app.route('/classify', methods=['POST'])
 def classify():
+    
+    class_mappings = {
+        0: "tench",
+        1: "English springer",
+        2: "cassette player",
+        3: "chain saw",
+        4: "church",
+        5: "French horn",
+        6: "garbage truck",
+        7: "gas pump",
+        8: "golf ball",
+        9: "parachute"
+    }
     try:
         # Get the image data from the request
         image_data = request.get_data()
@@ -59,19 +74,25 @@ def classify():
         
         # Load model and make prediction
         model = keras.models.load_model('model.h5')
+        
         # Explicitly compile the model to suppress the warning
         model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-        predictions = model.predict(img_array)
+        logits = model.predict(img_array)
+        
+        # Convert logits to probabilities using softmax
+        probabilities = tf.nn.softmax(logits).numpy()[0]
         
         # Get the predicted class and confidence
-        predicted_class = np.argmax(predictions[0])
-        confidence = float(predictions[0][predicted_class])
+        predicted_class = np.argmax(probabilities)
+        confidence = float(probabilities[predicted_class])
+        
+        print(probabilities)
         
         return jsonify({
             'status': 'success',
-            'predicted_class': int(predicted_class),
+            'predicted_class': class_mappings[int(predicted_class)],
             'confidence': confidence,
-            'all_predictions': predictions[0].tolist()
+            'class_probabilities': probabilities.tolist()
         })
         
     except Exception as e:
